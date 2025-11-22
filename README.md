@@ -12,6 +12,7 @@ The first release will serve as a working proof-of-concept, with all ESP32 code 
 - Basic web interface with setpoint and manual buttons
 - Saving setpoints in non-volatile memory
 - Captive portal for WiFi configuration
+- OTA integration for ESP programming in wireless-mode.
 
 ### 2. Future structured version
 Once the monolithic version is validated, the code will be refactored into a modular structure, improving maintainability, readability, and scalability for additional features.
