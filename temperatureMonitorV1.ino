@@ -86,7 +86,7 @@ void handleSave() {
 // Pagina principale (STA)
 void handleRoot() {
   //float t = 27.00;//tempSensor.readTemperature();
-
+  
 
 
   html.replace("__TEMP_FORNO__", (globalTempForno < -20) ? "NON CONNESSO" : String(globalTempForno) + " °C");
@@ -142,8 +142,8 @@ void startAPMode() {
   server.on("/save", HTTP_POST, handleSave);
   server.begin();
 
-  Serial.println("AP avviato!");
-  Serial.println("IP: " + WiFi.softAPIP().toString());
+  //Serial.println("AP avviato!");
+  //Serial.println("IP: " + WiFi.softAPIP().toString());
 }
 
 
@@ -154,40 +154,40 @@ void startSTAMode() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid.c_str(), password.c_str());
 
-  Serial.print("Connessione a: ");
-  Serial.println(ssid);
+  //Serial.print("Connessione a: ");
+  //Serial.println(ssid);
 
   unsigned long start = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - start < 8000) {
     delay(200);
-    Serial.print(".");
+    //Serial.print(".");
   }
 
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("\nConnessione fallita. Avvio AP...");
+    //Serial.println("\nConnessione fallita. Avvio AP...");
     startAPMode();
     return;
   }
   wifiPrefs.end();
-
-  Serial.print("\nConnesso! IP: ");
-  Serial.println(WiFi.localIP());
+  
+  //Serial.print("\nConnesso! IP: ");
+  //Serial.println(WiFi.localIP());
 
   ArduinoOTA.setHostname("lievitazione");
   ArduinoOTA.setPassword("1234");  // opzionale, ma consigliato
 
   ArduinoOTA
     .onStart([]() {
-      Serial.println("OTA: Start");
+      //Serial.println("OTA: Start");
     })
     .onEnd([]() {
-      Serial.println("\nOTA: End");
+      //Serial.println("\nOTA: End");
     })
     .onProgress([](unsigned int progress, unsigned int total) {
-      Serial.printf("Progress: %u%%\r", (progress * 100) / total);
+      //Serial.printf("Progress: %u%%\r", (progress * 100) / total);
     })
     .onError([](ota_error_t error) {
-      Serial.printf("Error[%u]\n", error);
+      //Serial.printf("Error[%u]\n", error);
     });
 
   ArduinoOTA.begin();
@@ -205,7 +205,7 @@ void startSTAMode() {
       id = server.arg("id");
       uint8_t gpioTemp = (id == "Filo") ? GPIO_Filo  : GPIO_Forno;
       digitalWrite(gpioTemp, HIGH);
-    server.send(200, "text/plain", "OK");
+      server.send(200, "text/plain", "OK");
       return;
     }
     server.send(400, "text/plain", "Manca l'id");
@@ -217,7 +217,7 @@ void startSTAMode() {
       id = server.arg("id");
       uint8_t gpioTemp = (id == "Filo") ? GPIO_Filo  : GPIO_Forno;
       digitalWrite(gpioTemp, LOW);
-    server.send(200, "text/plain", "OK");
+      server.send(200, "text/plain", "OK");
       return;
     }
     server.send(400, "text/plain", "Manca l'id");
@@ -230,7 +230,7 @@ void startSTAMode() {
         id = server.arg("id");
         uint8_t gpio_temp = (id == "Filo") ? GPIO_Filo  : GPIO_Forno;
         String state = digitalRead(gpio_temp) ? "ON" : "OFF";
-    server.send(200, "text/plain", state);
+        server.send(200, "text/plain", state);
         return;
     }
     server.send(400, "text/plain", "Manca l'id");
