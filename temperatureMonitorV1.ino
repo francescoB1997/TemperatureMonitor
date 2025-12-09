@@ -6,7 +6,7 @@
 #include <ArduinoOTA.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
-
+#include "index_html.h"
 // --------------------------------------------------------------------
 // CONFIG
 // --------------------------------------------------------------------
@@ -79,145 +79,20 @@ void handleSave() {
     ESP.restart();
   } else {
     server.send(400, "text/plain", "Errore");
-
   }
+
 }
 
 // Pagina principale (STA)
 void handleRoot() {
   //float t = 27.00;//tempSensor.readTemperature();
 
-String html = F(R"rawliteral(
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8"/>
-<title>Camera di Lievitazione</title>
-<style>
-  body {
-    background: #f7f2e8;
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    text-align: center;
-    color: #4a3c2d;
-  }
-  h1 {
-    background: #d9a86c;
-    padding: 15px;
-    margin: 0;
-    color: white;
-    font-size: 26px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-  }
-  .card {
-    background: white;
-    max-width: 400px;
-    margin: 30px auto;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-  }
-  .label {
-    margin-top: 20px;
-    font-size: 16px;
-    font-weight: bold;
-  }
-  .value {
-    font-size: 32px;
-    margin: 10px 0;
-    color: #b05f3c;
-  }
-  input[type=range] {
-    width: 90%;
-    margin: 15px auto;
-  }
-  button {
-    background: #d99058;
-    color: white;
-    padding: 10px 18px;
-    border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    cursor: pointer;
-    margin-top: 15px;
-    transition: 0.2s;
-  }
-  button:hover {
-    background: #c17843;
-  }
-</style>
-</head>
-<body>
 
-<h1>Camera di Lievitazione</h1>
 
-<div class="card">
-  <div class="label">Temperatura Forno attuale</div>
-  <div class="value">__TEMP_FORNO__ °C</div>
-
-  <div class="label">Temperatura Camera Filo attuale</div>
-  <div class="value">__TEMP_FILO__ °C</div>
-
-  <div class="label">SetpointForno</div>
-  <div id="setLabel" class="value">__SETPOINT_FORNO__ °C</div>
-
-  <div class="label">SetpointCameraFilo</div>
-  <div id="setLabel" class="value">__SETPOINT_FILO__ °C</div>
-
-  <form action="/setTempForno" method="POST">
-    <input type="range" min="10" max="40" step="0.1" name="setPointForno" id="slider" value="__SETPOINT_FORNO__">
-    <button type="submit">Imposta</button>
-  </form>
-
-  <form action="/setTempFilo" method="POST">
-    <input type="range" min="10" max="40" step="0.1" name="setPointFilo" id="slider" value="__SETPOINT_FILO__">
-    <button type="submit">Imposta</button>
-  </form>
-
-  <div class="manual">
-    <button id="btnOn" class="button button-green">Accendi</button>
-    <button id="btnOff" class="button button-red">Spegni</button>
-    <span id="relayBadge" class="badge">__RELAY__</span>
-  </div>
-
-<script>
-document.getElementById('btnOn').addEventListener('click', function(){
-  fetch('/relay_on').then(()=>updateBadge());
-});
-document.getElementById('btnOff').addEventListener('click', function(){
-  fetch('/relay_off').then(()=>updateBadge());
-});
-
-function updateBadge(){
-  fetch('/relay_state').then(r => r.text()).then(text => {
-    const badge = document.getElementById('relayBadge');
-    badge.innerText = text;
-    badge.style.backgroundColor = (text === 'ON') ? '#28a745' : '#dc3545';
-  });
-}
-
-// on load populate badge
-updateBadge();
-</script>
-</div>
-
-<script>
-  const slider = document.getElementById('slider');
-  const setLabel = document.getElementById('setLabel');
-  slider.oninput = function() {
-    setLabel.innerText = this.value + " °C";
-  }
-</script>
-
-</body>
-</html>
-)rawliteral");
-
-  html.replace("__TEMP_FORNO__", String(globalTempForno));
+  html.replace("__TEMP_FORNO__", (globalTempForno < -20) ? "NON CONNESSO" : String(globalTempForno) + " °C");
   html.replace("__SETPOINT_FORNO__", String(setPointForno));
-  html.replace("__TEMP_FILO__", String(globalTempForno));
-  html.replace("__SETPOINT_FILO__", String(setPointForno));
+  html.replace("__TEMP_FILO__", (globalTempFilo < -20) ? "NON CONNESSO" : String(globalTempFilo)+ " °C");
+  html.replace("__SETPOINT_FILO__", String(setPointFilo));
   server.send(200, "text/html", html);
 }
 
