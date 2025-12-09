@@ -9,10 +9,10 @@
 // --------------------------------------------------------------------
 // CONFIG
 // --------------------------------------------------------------------
-#define GPIO_SensoreForno 0
+#define GPIO_SensoreForno 1
 #define GPIO_Forno 2
 
-#define GPIO_SensoreFilo 1
+#define GPIO_SensoreFilo 0
 #define GPIO_Filo 4
 Preferences prefs;
 
