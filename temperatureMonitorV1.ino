@@ -2,6 +2,7 @@
 #include <WebServer.h>
 #include <DNSServer.h>
 #include <Preferences.h>
+#include <ESPmDNS.h>
 #include <ArduinoOTA.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -14,7 +15,9 @@
 
 #define GPIO_SensoreFilo 0
 #define GPIO_Filo 4
-Preferences prefs;
+Preferences wifiPrefs;
+Preferences dataPrefs;
+
 
 
 OneWire oneWireSensoreForno(GPIO_SensoreForno);
@@ -67,14 +70,16 @@ void handleSave() {
     ssid = server.arg("ssid");
     password = server.arg("password");
 
-    prefs.putString("ssid", ssid);
-    prefs.putString("password", password);
+    wifiPrefs.putString("ssid", ssid);
+    wifiPrefs.putString("password", password);
 
     server.send(200, "text/html", "<h3>Salvato! Riavvio...</h3>");
+    wifiPrefs.end();
     delay(1000);
     ESP.restart();
   } else {
     server.send(400, "text/plain", "Errore");
+
   }
 }
 
@@ -219,11 +224,10 @@ updateBadge();
 void handleSetpointForno() {
   if (server.hasArg("setPointForno")) {
     setPointForno = server.arg("setPointForno").toFloat();
-    prefs.putFloat("lastSetPointForno", setPointForno);
+    dataPrefs.putFloat("sPForno", setPointForno);
   }
-  else{
-    Serial.println("No setPointForno in FORM");
-  }
+  // else
+  //  Serial.println("No setPointForno in FORM");
   server.sendHeader("Location", "/");
   server.send(303);
 }
@@ -231,11 +235,10 @@ void handleSetpointForno() {
 void handleSetpointFilo() {
   if (server.hasArg("setPointFilo")) {
     setPointFilo = server.arg("setPointFilo").toFloat();
-    prefs.putFloat("lastSetPointFilo", setPointFilo);
+    dataPrefs.putFloat("sPFilo", setPointFilo);
   }
-  else{
-    Serial.println("No setPointFilo in FORM");
-  }
+  //else
+  //  Serial.println("No setPointFilo in FORM");
   server.sendHeader("Location", "/");
   server.send(303);
 }
@@ -250,7 +253,7 @@ void handleNotFound() {
 // AP MODE (CAPTIVE PORTAL)
 // --------------------------------------------------------------------
 void startAPMode() {
-  Serial.println("Avvio AP per configurazione...");
+  //Serial.println("Avvio AP per configurazione...");
 
   WiFi.mode(WIFI_AP);
   WiFi.softAP(AP_SSID);
@@ -290,6 +293,7 @@ void startSTAMode() {
     startAPMode();
     return;
   }
+  wifiPrefs.end();
 
   Serial.print("\nConnesso! IP: ");
   Serial.println(WiFi.localIP());
@@ -314,32 +318,55 @@ void startSTAMode() {
   ArduinoOTA.begin();
   WiFi.setSleep(false);
 
-  lastSetPointForno = prefs.getFloat("lastSetPoint", 27.5); // mettere default
+  setPointForno = dataPrefs.getFloat("sPForno", 27.5); // mettere default
+  setPointFilo = dataPrefs.getFloat("sPFilo", 27.5); // mettere default
 
   server.on("/", handleRoot);
   server.on("/setTempForno", HTTP_POST, handleSetpointForno);
   server.on("/setTempFilo", HTTP_POST, handleSetpointFilo);
   server.on("/relay_on", HTTP_GET, [](){
-    digitalWrite(GPIO_Forno, HIGH);
+    String id = "";
+    if (server.hasArg("id")) {
+      id = server.arg("id");
+      uint8_t gpioTemp = (id == "Filo") ? GPIO_Filo  : GPIO_Forno;
+      digitalWrite(gpioTemp, HIGH);
     server.send(200, "text/plain", "OK");
+      return;
+    }
+    server.send(400, "text/plain", "Manca l'id");
   });
 
   server.on("/relay_off", HTTP_GET, [](){
-    digitalWrite(GPIO_Forno, LOW);
+    String id = "";
+    if (server.hasArg("id")) {
+      id = server.arg("id");
+      uint8_t gpioTemp = (id == "Filo") ? GPIO_Filo  : GPIO_Forno;
+      digitalWrite(gpioTemp, LOW);
     server.send(200, "text/plain", "OK");
+      return;
+    }
+    server.send(400, "text/plain", "Manca l'id");
   });
 
   // restituisce "ON" o "OFF"
   server.on("/relay_state", HTTP_GET, [](){
-    String state = digitalRead(GPIO_Forno) ? "ON" : "OFF";
+    String id = "";
+    if (server.hasArg("id")) {
+        id = server.arg("id");
+        uint8_t gpio_temp = (id == "Filo") ? GPIO_Filo  : GPIO_Forno;
+        String state = digitalRead(gpio_temp) ? "ON" : "OFF";
     server.send(200, "text/plain", state);
+        return;
+    }
+    server.send(400, "text/plain", "Manca l'id");
   });
   server.onNotFound(handleNotFound);
   server.begin();
 }
 
 void setup() {
-  Serial.begin(115200);
+  MDNS.begin("esp32c3");
+  //Serial.begin(115200);
   sensoreForno.begin();
   sensoreFilo.begin();
   
@@ -348,9 +375,11 @@ void setup() {
   digitalWrite(GPIO_Forno, LOW);  
   digitalWrite(GPIO_Filo, LOW);
 
-  prefs.begin("wifi", false);
-  ssid = prefs.getString("ssid", "");
-  password = prefs.getString("password", "");
+  wifiPrefs.begin("wifi", false);
+  dataPrefs.begin("data", false);
+
+  ssid = wifiPrefs.getString("ssid", "");
+  password = wifiPrefs.getString("password", "");
 
   if (ssid == "")
     startAPMode();
@@ -367,11 +396,14 @@ void loop() {
 
   if (WiFi.status() == WL_CONNECTED) {
     // controllo temperatura
-    if (autoMode && (t < (setpoint - hysteresis))) {
+    if (autoMode && ( globalTempForno < (setPointForno - hysteresis))) {
       digitalWrite(GPIO_Forno, HIGH);
-      digitalWrite(GPIO_Filo, HIGH);
-    } else if (t >= setpoint) {
+    } else if (globalTempForno >= setPointForno) {
       digitalWrite(GPIO_Forno, LOW);
+    }
+    if (autoMode && ( globalTempFilo < (setPointFilo - hysteresis))) {
+      digitalWrite(GPIO_Filo, HIGH);
+    } else if (globalTempFilo >= setPointFilo) {
       digitalWrite(GPIO_Filo, LOW);
     }
   }
@@ -380,10 +412,15 @@ void loop() {
   {
     // aggiorna la variabile globale t per aggiornare la temperatura
     sensoreForno.requestTemperatures(); 
-    float temperaturaForno = sensoreForno.getTempCByIndex(0);
-
+    //float temperaturaForno = sensoreForno.getTempCByIndex(0);
+    globalTempForno = sensoreForno.getTempCByIndex(0);
+    if (globalTempForno < -20)
+      sensoreForno.begin();
     sensoreFilo.requestTemperatures(); 
-    float temperaturaFilo = sensoreFilo.getTempCByIndex(0);
+    globalTempFilo = sensoreFilo.getTempCByIndex(0);
+    if (globalTempFilo < -20)
+      sensoreFilo.begin();
+    //float temperaturaFilo = sensoreFilo.getTempCByIndex(0);
     timeReadTemperature = millis();
   }
 }
