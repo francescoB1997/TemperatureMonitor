@@ -29,9 +29,7 @@ DNSServer dnsServer;
 
 float setPointForno = 26.0;
 float setPointFilo = 26.0;
-float lastSetPointForno = 0.0;
-float lastSetPointFilo = 0.0;
-float hysteresis = 3.0;
+float hysteresis = 1.2;
 float globalTempForno = 100;
 float globalTempFilo = 100;
 unsigned long timeReadTemperature = 0;
